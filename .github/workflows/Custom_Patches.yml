@@ -180,42 +180,6 @@ jobs:
           print("✅ Patch 3 完成")
           PYTHON_PATCH_3
 
-          # ==================== Patch 4: flutter-build.yml - 环境变量注入 ====================
-          echo "📝 应用 Patch 4: flutter-build.yml - 环境变量注入"
-
-          python3 << 'PYTHON_PATCH_4'
-          import re
-
-          file_path = ".github/workflows/flutter-build.yml"
-          with open(file_path, "r") as f:
-              content = f.read()
-
-          # 检查是否已存在自定义变量
-          if 'RS_PUB_KEY:' in content:
-              print("ℹ️ 环境变量已存在，跳过")
-              import sys
-              sys.exit(0)
-
-          # 需要添加的环境变量
-          new_env_vars = '''  RS_PUB_KEY: "${{secrets.RS_PUB_KEY}}"
-          RENDEZVOUS_SERVER: "${{secrets.RENDEZVOUS_SERVER}}"
-          API_SERVER: "${{secrets.API_SERVER}}"
-          DEFAULT_PASSWORD: "${{secrets.DEFAULT_PASSWORD}}"'''
-
-          # 在 'env:' 行后面插入新变量
-          content = re.sub(
-              r'^env:',
-              f'env:\n{new_env_vars}',
-              content,
-              flags=re.MULTILINE
-          )
-
-          with open(file_path, "w") as f:
-              f.write(content)
-
-          print("✅ Patch 4 完成")
-          PYTHON_PATCH_4
-
           echo "✅ 所有补丁应用完成"
 
       - name: Commit Changes

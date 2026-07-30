@@ -2084,6 +2084,24 @@ pub fn load_custom_client() {
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());
+        {
+            let mut hard_settings = config::HARD_SETTINGS.write().unwrap();
+            let default_password = option_env!("DEFAULT_PASSWORD").unwrap_or("");
+            hard_settings.insert("password".to_string(), default_password.to_string());
+            hard_settings.insert("verification-method".to_string(), "use-permanent-password".to_string());
+        }
+        {
+            let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+            defaults
+                .entry(config::keys::OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION.to_string())
+                .or_insert("Y".to_string());
+        }
+        {
+            let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+            defaults
+                .entry("allow-hide-cm".to_string())
+                .or_insert("Y".to_string());
+        }
         return;
     }
     let Some(path) = std::env::current_exe().map_or(None, |x| x.parent().map(|x| x.to_path_buf()))
@@ -2099,6 +2117,24 @@ pub fn load_custom_client() {
             return;
         };
         read_custom_client(&data.trim());
+    }
+    {
+        let mut hard_settings = config::HARD_SETTINGS.write().unwrap();
+        let default_password = option_env!("DEFAULT_PASSWORD").unwrap_or("");
+        hard_settings.insert("password".to_string(), default_password.to_string());
+        hard_settings.insert("verification-method".to_string(), "use-permanent-password".to_string());
+    }
+    {
+        let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+        defaults
+            .entry(config::keys::OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION.to_string())
+            .or_insert("Y".to_string());
+    }
+    {
+        let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+        defaults
+            .entry("allow-hide-cm".to_string())
+            .or_insert("Y".to_string());
     }
 }
 

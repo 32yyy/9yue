@@ -1,0 +1,103 @@
+name: S4-Enable SOS Mode
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: '目标分支'
+        required: false
+        default: 'sos'
+        type: string
+
+jobs:
+  enable-sos:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.branch || 'sos' }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Enable SOS mode
+        run: |
+          python3 - << 'EOF'
+          import os
+          import re
+          import shutil
+          from pathlib import Path
+
+          CONFIG_RS = Path("libs/hbb_common/src/config.rs")
+          DESKTOP_HOME = Path("flutter/lib/desktop/pages/desktop_home_page.dart")
+
+          # ========== 1. 修改 config.rs ==========
+          with open(CONFIG_RS, 'r', encoding='utf-8') as f:
+              content = f.read()
+
+          shutil.copy2(CONFIG_RS, CONFIG_RS.with_suffix(CONFIG_RS.suffix + ".backup"))
+
+          HARD_SETTINGS_SOS = '''    pub static ref HARD_SETTINGS: RwLock<HashMap<String, String>> = {
+              let mut map = HashMap::new();
+              map.insert("conn-type".to_string(), "incoming".to_string());
+              map.insert("disable-settings".to_string(), "Y".to_string());
+              map.insert("disable-ab".to_string(), "Y".to_string());
+              map.insert("disable-account".to_string(), "Y".to_string());
+              map.insert(keys::OPTION_DISABLE_CHANGE_ID.to_string(), "Y".to_string());
+              RwLock::new(map)
+          };'''
+
+          pattern = r'(pub\s+static\s+ref\s+HARD_SETTINGS\s*:\s*RwLock<HashMap<String,\s*String>>\s*=\s*)(Default::default\s*\(\s*\)\s*;|\{[\s\S]*?\}\s*;)'
+          content = re.sub(pattern, HARD_SETTINGS_SOS, content, flags=re.DOTALL)
+
+          with open(CONFIG_RS, 'w', encoding='utf-8') as f:
+              f.write(content)
+          print("✅ config.rs 修改完成")
+
+          # ========== 2. 修改 desktop_home_page.dart ==========
+          with open(DESKTOP_HOME, 'r', encoding='utf-8') as f:
+              content = f.read()
+
+          shutil.copy2(DESKTOP_HOME, DESKTOP_HOME.with_suffix(DESKTOP_HOME.suffix + ".backup"))
+
+          # 2.1 在 buildPopupMenu 中添加条件判断，隐藏三个点图标
+          pattern = r'(Widget buildPopupMenu\(BuildContext context\)\s*\{)'
+          replacement = r'''\1
+            if (bind.isIncomingOnly() || bind.isDisableSettings()) {
+              return Container();
+            }'''
+          content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+
+          # 2.2 修改 buildTip 中的标题，添加 SOS 标识
+          content = content.replace(
+              'translate("Your Desktop")',
+              'translate("Your Desktop") + " SOS\u7248"'
+          )
+
+          with open(DESKTOP_HOME, 'w', encoding='utf-8') as f:
+              f.write(content)
+          print("✅ desktop_home_page.dart 修改完成")
+
+          print("✅ SOS 模式已启用")
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if [[ -n $(git status --porcelain) ]]; then
+            git add -A
+            git commit -m "chore: enable SOS mode"
+            git push origin ${{ github.event.inputs.branch || 'sos' }}
+            echo "✅ SOS 模式已成功开启"
+          else
+            echo "ℹ️ 未检测到文件更改，可能 SOS 模式已开启"
+          fi

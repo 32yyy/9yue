@@ -1,0 +1,78 @@
+name: S1-Merge hbb_common Submodule to Subtree
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: '目标分支 (默认: master)'
+        required: false
+        default: 'master'
+        type: string
+
+jobs:
+  merge-submodule:
+    name: Convert submodule to subtree
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+          ref: ${{ github.event.inputs.branch || 'master' }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Check submodule status
+        run: |
+          echo "📂 检查子模块目录:"
+          ls -la libs/hbb_common || echo "目录不存在"
+          echo ""
+          echo "📋 .gitmodules 内容:"
+          cat .gitmodules || echo "不存在"
+      
+      - name: Remove submodule completely
+        run: |
+          echo "🗑️ 删除子模块目录..."
+          rm -rf libs/hbb_common
+          
+          echo "📤 从Git索引中移除..."
+          git rm --cached -r libs/hbb_common || true
+          
+          echo "⚙️ 从.gitmodules中移除配置..."
+          git config -f .gitmodules --remove-section submodule.libs/hbb_common || true
+          
+          echo "📦 从.git/config中移除..."
+          git config --local --remove-section submodule.libs/hbb_common || true
+          
+          echo "🗄️ 删除.git/modules中的缓存..."
+          rm -rf .git/modules/libs/hbb_common || true
+          
+          git add .gitmodules || true
+          git commit -m "chore: remove hbb_common submodule" || echo "没有需要提交的变更"
+      
+      - name: Add hbb_common as subtree
+        run: |
+          echo "🌿 添加 hbb_common 作为 subtree..."
+          git remote add hbb_common https://github.com/rustdesk/hbb_common.git
+          git subtree add --prefix=libs/hbb_common hbb_common main --squash
+          echo "✅ 合并完成"
+      
+      - name: Verify merge result
+        run: |
+          echo "📂 验证目录结构:"
+          ls -la libs/hbb_common/
+          echo ""
+          echo "📄 检查关键文件:"
+          ls -la libs/hbb_common/src/config.rs || echo "config.rs 不存在"
+      
+      - name: Push changes
+        run: |
+          git push origin ${{ github.event.inputs.branch || 'master' }}

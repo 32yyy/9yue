@@ -1,0 +1,67 @@
+name: S6-Build Custom Client
+
+on:
+  workflow_dispatch:
+    inputs:
+      rendezvous_server:
+        description: 'ID服务器地址'
+        required: true
+        type: string
+      rs_pub_key:
+        description: '服务器公钥'
+        required: true
+        type: string
+      api_server:
+        description: 'API服务器地址'
+        required: false
+        default: 'https://admin.rustdesk.com'
+        type: string
+      default_password:
+        description: '默认密码'
+        required: false
+        default: ''
+        type: string
+      #relay_server:
+        #description: '中继服务器地址'
+        #required: false
+        #default: ''
+        #type: string
+      version_suffix:
+        description: '文件名后缀'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      # 如果需要修改 config.rs 等文件，可以在这里添加步骤
+      - name: Apply config replacements
+        run: |
+          echo "应用自定义配置"
+        env:
+          RENDEZVOUS_SERVER: ${{ github.event.inputs.rendezvous_server }}
+          RS_PUB_KEY: ${{ github.event.inputs.rs_pub_key }}
+          API_SERVER: ${{ github.event.inputs.api_server }}
+          DEFAULT_PASSWORD: ${{ github.event.inputs.default_password }}
+          #RELAY_SERVER: ${{ github.event.inputs.relay_server }}
+
+  call-flutter-build:
+    needs: build
+    uses: ./.github/workflows/flutter-build-custom.yml
+    with:
+      upload-artifact: true
+      upload-tag: ${{ github.event.inputs.version_suffix || 'custom' }}
+    secrets:
+      RENDEZVOUS_SERVER: ${{ github.event.inputs.rendezvous_server }}
+      RS_PUB_KEY: ${{ github.event.inputs.rs_pub_key }}
+      API_SERVER: ${{ github.event.inputs.api_server }}
+      DEFAULT_PASSWORD: ${{ github.event.inputs.default_password }}
+      #RELAY_SERVER: ${{ github.event.inputs.relay_server }}

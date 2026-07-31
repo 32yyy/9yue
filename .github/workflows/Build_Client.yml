@@ -64,4 +64,4 @@ jobs:
       RS_PUB_KEY: ${{ github.event.inputs.rs_pub_key }}
       API_SERVER: ${{ github.event.inputs.api_server }}
       DEFAULT_PASSWORD: ${{ github.event.inputs.default_password }}
-      #RELAY_SERVER: ${{ github.event.inputs.relay_server }}
+      CUSTOM_SUFFIX: ${{ github.event.inputs.version_suffix }}

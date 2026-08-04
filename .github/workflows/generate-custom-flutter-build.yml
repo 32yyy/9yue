@@ -79,12 +79,13 @@ jobs:
             RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
             API_SERVER: "${{ secrets.API_SERVER }}"
             DEFAULT_PASSWORD: "${{ secrets.DEFAULT_PASSWORD }}"
-            CUSTOM_SUFFIX: "${{ secrets.CUSTOM_SUFFIX }}"''')
+            CUSTOM_SUFFIX: "${{ secrets.CUSTOM_SUFFIX }}"
+          ''')
 
           if re.search(r'^env:', content, flags=re.MULTILINE):
               content = re.sub(
                   r'^env:',
-                  f'env:' + '\n' + env_vars,
+                  f'env:\n{env_vars}',
                   content,
                   flags=re.MULTILINE
               )
@@ -93,7 +94,7 @@ jobs:
               print("⚠️ 未找到 env:")
               content = re.sub(
                   r'(# NOTE:.*?)(?=jobs:)',
-                  r'\1env:' + '\n' + env_vars + '\n\n',
+                  r'\1env:\n' + env_vars + '\n\n',
                   content,
                   flags=re.DOTALL
               )

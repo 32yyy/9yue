@@ -14,7 +14,7 @@ jobs:
 
       - name: Generate flutter-build-custom.yml
         run: |
-          python3 -c "
+          python3 << 'EOF'
           import re
           from pathlib import Path
 
@@ -22,7 +22,7 @@ jobs:
           custom = Path('.github/workflows/flutter-build-custom.yml')
 
           if not original.exists():
-              print('❌ 找不到原始文件')
+              print("❌ 找不到原始文件")
               exit(1)
 
           with open(original, 'r', encoding='utf-8') as f:
@@ -52,12 +52,13 @@ jobs:
               )
 
           # 修改2: 添加环境变量
+          # 注意：使用 \$ 转义 $，避免 YAML 解析器误认为是模板语法
           env_block = '''  # ===== 自定义环境变量 =====
-          RS_PUB_KEY: \"\${{ secrets.RS_PUB_KEY }}\"
-          RENDEZVOUS_SERVER: \"\${{ secrets.RENDEZVOUS_SERVER }}\"
-          API_SERVER: \"\${{ secrets.API_SERVER }}\"
-          DEFAULT_PASSWORD: \"\${{ secrets.DEFAULT_PASSWORD }}\"
-          CUSTOM_SUFFIX: \"\${{ secrets.CUSTOM_SUFFIX }}\"'''
+          RS_PUB_KEY: "\${{ secrets.RS_PUB_KEY }}"
+          RENDEZVOUS_SERVER: "\${{ secrets.RENDEZVOUS_SERVER }}"
+          API_SERVER: "\${{ secrets.API_SERVER }}"
+          DEFAULT_PASSWORD: "\${{ secrets.DEFAULT_PASSWORD }}"
+          CUSTOM_SUFFIX: "\${{ secrets.CUSTOM_SUFFIX }}"'''
 
           if re.search(r'^env:', content, flags=re.MULTILINE):
               content = re.sub(
@@ -70,8 +71,8 @@ jobs:
           with open(custom, 'w', encoding='utf-8') as f:
               f.write(content)
 
-          print('✅ flutter-build-custom.yml 已生成')
-          "
+          print("✅ flutter-build-custom.yml 已生成")
+          EOF
 
       - name: Upload custom flutter-build file
         uses: actions/upload-artifact@v4

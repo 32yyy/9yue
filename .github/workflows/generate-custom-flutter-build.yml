@@ -1,4 +1,4 @@
-name: S00-Generate Custom flutter-build.yml
+name: S00-Generate Custom flutter build.yml
 
 on:
   workflow_dispatch:

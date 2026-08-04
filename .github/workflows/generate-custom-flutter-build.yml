@@ -73,6 +73,7 @@ jobs:
           with open(file_path, 'r', encoding='utf-8') as f:
               content = f.read()
 
+          # 每行前面都有 2 个空格，与原有 env 子项对齐
           env_vars = textwrap.dedent('''
             # ===== 自定义环境变量 =====
             RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"

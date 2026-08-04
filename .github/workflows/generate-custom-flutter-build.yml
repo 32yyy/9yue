@@ -73,14 +73,21 @@ jobs:
           with open(file_path, 'r', encoding='utf-8') as f:
               content = f.read()
 
-          # 注意：使用 $$ 转义，防止 YAML 解析器误认为模板语法
+          # 使用占位符，避免 Heredoc 中的 $ 被 YAML 解析器干扰
           env_vars = textwrap.dedent('''
-            # ===== 自定义环境变量 =====
-              RS_PUB_KEY: "$${{ secrets.RS_PUB_KEY }}"
-              RENDEZVOUS_SERVER: "$${{ secrets.RENDEZVOUS_SERVER }}"
-              API_SERVER: "$${{ secrets.API_SERVER }}"
-              DEFAULT_PASSWORD: "$${{ secrets.DEFAULT_PASSWORD }}"
-              CUSTOM_SUFFIX: "$${{ secrets.CUSTOM_SUFFIX }}"''')  # 👈 结束引号前没有换行
+              # ===== 自定义环境变量 =====
+              RS_PUB_KEY: "SECRETS_RS_PUB_KEY"
+              RENDEZVOUS_SERVER: "SECRETS_RENDEZVOUS_SERVER"
+              API_SERVER: "SECRETS_API_SERVER"
+              DEFAULT_PASSWORD: "SECRETS_DEFAULT_PASSWORD"
+              CUSTOM_SUFFIX: "SECRETS_CUSTOM_SUFFIX"''')
+
+          # 替换占位符为正确的 GitHub Secrets 语法
+          env_vars = env_vars.replace('SECRETS_RS_PUB_KEY', '${{ secrets.RS_PUB_KEY }}')
+          env_vars = env_vars.replace('SECRETS_RENDEZVOUS_SERVER', '${{ secrets.RENDEZVOUS_SERVER }}')
+          env_vars = env_vars.replace('SECRETS_API_SERVER', '${{ secrets.API_SERVER }}')
+          env_vars = env_vars.replace('SECRETS_DEFAULT_PASSWORD', '${{ secrets.DEFAULT_PASSWORD }}')
+          env_vars = env_vars.replace('SECRETS_CUSTOM_SUFFIX', '${{ secrets.CUSTOM_SUFFIX }}')
 
           if re.search(r'^env:', content, flags=re.MULTILINE):
               content = re.sub(

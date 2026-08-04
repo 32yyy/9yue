@@ -73,7 +73,7 @@ jobs:
           with open(file_path, 'r', encoding='utf-8') as f:
               content = f.read()
 
-          # 注意：使用 \$ 转义，防止 YAML 解析器误认为模板语法
+          # 注意：使用 $$ 转义，防止 YAML 解析器误认为模板语法
           env_vars = textwrap.dedent('''
             # ===== 自定义环境变量 =====
               RS_PUB_KEY: "$${{ secrets.RS_PUB_KEY }}"

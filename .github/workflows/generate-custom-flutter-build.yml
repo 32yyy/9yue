@@ -31,20 +31,20 @@ jobs:
 
           if 'secrets:' not in content:
               secrets_block = textwrap.dedent('''
-          secrets:
-          # ===== 新增的自定义 secrets =====
-          RENDEZVOUS_SERVER:
-          required: false
-          RS_PUB_KEY:
-          required: false
-          API_SERVER:
-          required: false
-          DEFAULT_PASSWORD:
-          required: false
-          RELAY_SERVER:
-          required: false
-          CUSTOM_SUFFIX:
-          required: false
+              secrets:
+                # ===== 自定义 secrets =====
+                RENDEZVOUS_SERVER:
+                  required: false
+                RS_PUB_KEY:
+                  required: false
+                API_SERVER:
+                  required: false
+                DEFAULT_PASSWORD:
+                  required: false
+                RELAY_SERVER:
+                  required: false
+                CUSTOM_SUFFIX:
+                  required: false''')
               content = re.sub(
                   r'(inputs:.*?)(?=\n\s*#|$)',
                   r'\1' + '\n' + secrets_block,

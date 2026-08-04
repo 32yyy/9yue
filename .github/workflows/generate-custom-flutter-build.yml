@@ -1,4 +1,4 @@
-name: S00-Generate Custom flutter-build.yml
+name: Generate Custom flutter-build.yml
 
 on:
   workflow_dispatch:
@@ -13,50 +13,76 @@ jobs:
           fetch-depth: 0
 
       - name: Generate flutter-build-custom.yml
+        env:
+          # 将包含 ${{ ... }} 的字符串作为环境变量传递
+          ENV_VARS: |
+            # ===== 自定义环境变量 =====
+            RS_PUB_KEY: "$${{ secrets.RS_PUB_KEY }}"
+            RENDEZVOUS_SERVER: "$${{ secrets.RENDEZVOUS_SERVER }}"
+            API_SERVER: "$${{ secrets.API_SERVER }}"
+            DEFAULT_PASSWORD: "$${{ secrets.DEFAULT_PASSWORD }}"
+            CUSTOM_SUFFIX: "$${{ secrets.CUSTOM_SUFFIX }}"
         run: |
-          python3 << 'PYTHON_SCRIPT'
+          python3 - << 'EOF'
           import re
+          import os
           from pathlib import Path
 
           file_path = Path('.github/workflows/flutter-build-custom.yml')
           original = Path('.github/workflows/flutter-build.yml')
 
           if not original.exists():
-              print("❌ 找不到原始文件")
+              print(f'❌ 找不到原始文件: {original}')
               exit(1)
 
           with open(original, 'r', encoding='utf-8') as f:
               content = f.read()
 
-          # 修改1：在 upload-tag 后插入 secrets（保留原有内容）
+          # 修改1：添加 secrets
           if 'secrets:' not in content:
+              secrets_block = '''
+        secrets:
+          # ===== 自定义 secrets =====
+          RENDEZVOUS_SERVER:
+            required: false
+          RS_PUB_KEY:
+            required: false
+          API_SERVER:
+            required: false
+          DEFAULT_PASSWORD:
+            required: false
+          RELAY_SERVER:
+            required: false
+          CUSTOM_SUFFIX:
+            required: false'''
               content = re.sub(
-                  r'(upload-tag:\s*\n\s*type:\s*string\s*\n\s*default:\s*"[^"]*"\s*)',
-                  r'\1    secrets:\n      # ===== 自定义 secrets =====\n      RENDEZVOUS_SERVER:\n        required: false\n      RS_PUB_KEY:\n        required: false\n      API_SERVER:\n        required: false\n      DEFAULT_PASSWORD:\n        required: false\n      RELAY_SERVER:\n        required: false\n      CUSTOM_SUFFIX:\n        required: false',
+                  r'(inputs:.*?)(?=\n\s*#|$)',
+                  r'\1' + secrets_block,
                   content,
                   flags=re.DOTALL
               )
+              print('✅ 已添加 secrets 定义')
+          else:
+              print('ℹ️ secrets 已存在，跳过')
 
-          # 修改2：在 env: 后插入自定义变量（不添加任何转义）
-          env_block = '''  # ===== 自定义环境变量 =====
-          RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
-          RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
-          API_SERVER: "${{ secrets.API_SERVER }}"
-          DEFAULT_PASSWORD: "${{ secrets.DEFAULT_PASSWORD }}"
-          CUSTOM_SUFFIX: "${{ secrets.CUSTOM_SUFFIX }}"'''
-
-          content = re.sub(
-              r'^env:',
-              f'env:\n{env_block}',
-              content,
-              flags=re.MULTILINE
-          )
+          # 修改2：添加环境变量（从环境变量读取）
+          env_vars: str = os.environ.get('ENV_VARS', '')
+          if env_vars:
+              content = re.sub(
+                  r'^env:',
+                  f'env:{env_vars}',
+                  content,
+                  flags=re.MULTILINE
+              )
+              print('✅ 已添加环境变量')
+          else:
+              print('⚠️ 未找到 env 变量')
 
           with open(file_path, 'w', encoding='utf-8') as f:
               f.write(content)
 
-          print("✅ flutter-build-custom.yml 已生成")
-          PYTHON_SCRIPT
+          print(f'✅ flutter-build-custom.yml 已生成: {file_path}')
+          EOF
 
       - name: Upload custom flutter-build file
         uses: actions/upload-artifact@v4

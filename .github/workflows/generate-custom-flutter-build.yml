@@ -1,5 +1,4 @@
-
-name: Generate Custom flutter-build.yml
+name: S00-Generate Custom flutter-build.yml
 
 on:
   workflow_dispatch:
@@ -15,6 +14,7 @@ jobs:
 
       - name: Generate flutter-build-custom.yml
         env:
+          # 将包含 ${{ ... }} 的字符串作为环境变量传递
           ENV_VARS: |
             # ===== 自定义环境变量 =====
             RS_PUB_KEY: "$${{ secrets.RS_PUB_KEY }}"
@@ -42,19 +42,19 @@ jobs:
           if 'secrets:' not in content:
               secrets_block = '''
           secrets:
-          # ===== 自定义 secrets =====
-          RENDEZVOUS_SERVER:
-            required: false
-          RS_PUB_KEY:
-            required: false
-          API_SERVER:
-            required: false
-          DEFAULT_PASSWORD:
-            required: false
-          RELAY_SERVER:
-            required: false
-          CUSTOM_SUFFIX:
-            required: false'''
+            # ===== 自定义 secrets =====
+            RENDEZVOUS_SERVER:
+              required: false
+            RS_PUB_KEY:
+              required: false
+            API_SERVER:
+              required: false
+            DEFAULT_PASSWORD:
+              required: false
+            RELAY_SERVER:
+              required: false
+            CUSTOM_SUFFIX:
+              required: false'''
               content = re.sub(
                   r'(inputs:.*?)(?=\n\s*#|$)',
                   r'\1' + secrets_block,
@@ -66,11 +66,11 @@ jobs:
               print('ℹ️ secrets 已存在，跳过')
 
           # 修改2：添加环境变量（从环境变量读取）
-          env_vars: str = os.environ.get('ENV_VARS', '')
+          env_vars = os.environ.get('ENV_VARS', '')
           if env_vars:
               content = re.sub(
                   r'^env:',
-                  f'env:\n{env_vars}',
+                  f'env:{env_vars}',
                   content,
                   flags=re.MULTILINE
               )
@@ -81,8 +81,8 @@ jobs:
           with open(file_path, 'w', encoding='utf-8') as f:
               f.write(content)
 
-            print('✅ flutter-build-custom.yml 已生成')
-            EOF
+          print('✅ flutter-build-custom.yml 已生成')
+          EOF
 
       - name: Upload custom flutter-build file
         uses: actions/upload-artifact@v4

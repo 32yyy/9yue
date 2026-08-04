@@ -37,13 +37,13 @@ jobs:
                   flags=re.DOTALL
               )
 
-          # 修改2：在 env: 后插入自定义变量（只转义一层）
+          # 修改2：在 env: 后插入自定义变量（不添加任何转义）
           env_block = '''  # ===== 自定义环境变量 =====
-          RS_PUB_KEY: "\\${{ secrets.RS_PUB_KEY }}"
-          RENDEZVOUS_SERVER: "\\${{ secrets.RENDEZVOUS_SERVER }}"
-          API_SERVER: "\\${{ secrets.API_SERVER }}"
-          DEFAULT_PASSWORD: "\\${{ secrets.DEFAULT_PASSWORD }}"
-          CUSTOM_SUFFIX: "\\${{ secrets.CUSTOM_SUFFIX }}"'''
+          RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
+          RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
+          API_SERVER: "${{ secrets.API_SERVER }}"
+          DEFAULT_PASSWORD: "${{ secrets.DEFAULT_PASSWORD }}"
+          CUSTOM_SUFFIX: "${{ secrets.CUSTOM_SUFFIX }}"'''
 
           content = re.sub(
               r'^env:',

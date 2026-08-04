@@ -1,4 +1,4 @@
-name: S00-Generate Custom flutter build.yml
+name: S00-Generate Custom flutter-build.yml
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ jobs:
           cp .github/workflows/flutter-build.yml .github/workflows/flutter-build-custom.yml
 
           # 使用 Python 进行精确插入
-          python3 << 'EOF'
+          python3 - << 'EOF'
           import re
 
           file_path = ".github/workflows/flutter-build-custom.yml"
@@ -27,11 +27,8 @@ jobs:
               content = f.read()
 
           # ========== 第一处修改：在 workflow_call 下添加 secrets ==========
-          # 查找 workflow_call: 后面的内容，在其下插入 secrets 定义
-          # 如果已经存在 secrets 则跳过，否则在 inputs 之后插入
           if 'secrets:' not in content:
               # 在 inputs 定义之后插入 secrets
-              pattern = r'(on:\s*workflow_call:\s*inputs:.*?)(?=\n\s*#|$)'
               secrets_block = '''
         secrets:
           # ===== 自定义 secrets =====
@@ -48,25 +45,27 @@ jobs:
           CUSTOM_SUFFIX:
             required: false'''
 
-              # 使用 re.DOTALL 让 . 匹配换行
-              content = re.sub(pattern, r'\1' + secrets_block, content, flags=re.DOTALL)
+              # 在 inputs 后面插入
+              content = re.sub(
+                  r'(inputs:.*?)(?=\n\s*#|$)',
+                  r'\1' + secrets_block,
+                  content,
+                  flags=re.DOTALL
+              )
               print("✅ 已添加 secrets 定义")
           else:
               print("ℹ️ secrets 已存在，跳过")
 
           # ========== 第二处修改：在 env: 下添加自定义变量 ==========
-          # 精确匹配顶层的 env:（不匹配注释中的）
-          env_pattern = r'^env:'
           env_vars = '''
-  # ===== 自定义环境变量 =====
-  RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
-  RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
-  API_SERVER: "${{ secrets.API_SERVER }}"
-  DEFAULT_PASSWORD: "${{ secrets.DEFAULT_PASSWORD }}"
-  CUSTOM_SUFFIX: "${{ secrets.CUSTOM_SUFFIX }}"'''
+          # ===== 自定义环境变量 =====
+          RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
+          RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
+          API_SERVER: "${{ secrets.API_SERVER }}"
+          DEFAULT_PASSWORD: "${{ secrets.DEFAULT_PASSWORD }}"
+          CUSTOM_SUFFIX: "${{ secrets.CUSTOM_SUFFIX }}"'''
 
-          if re.search(env_pattern, content, flags=re.MULTILINE):
-              # 在 env: 行之后插入变量
+          if re.search(r'^env:', content, flags=re.MULTILINE):
               content = re.sub(
                   r'^env:',
                   f'env:{env_vars}',
@@ -75,7 +74,6 @@ jobs:
               )
               print("✅ 已添加环境变量")
           else:
-              # 如果找不到 env:，在文件合适位置添加
               print("⚠️ 未找到 env:，尝试在 jobs 前添加")
               content = re.sub(
                   r'(# NOTE:.*?)(?=jobs:)',

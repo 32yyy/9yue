@@ -76,11 +76,11 @@ jobs:
           # 注意：使用 \$ 转义，防止 YAML 解析器误认为模板语法
           env_vars = textwrap.dedent('''
             # ===== 自定义环境变量 =====
-              RS_PUB_KEY: "\${{ secrets.RS_PUB_KEY }}"
-              RENDEZVOUS_SERVER: "\${{ secrets.RENDEZVOUS_SERVER }}"
-              API_SERVER: "\${{ secrets.API_SERVER }}"
-              DEFAULT_PASSWORD: "\${{ secrets.DEFAULT_PASSWORD }}"
-              CUSTOM_SUFFIX: "\${{ secrets.CUSTOM_SUFFIX }}"''')  # 👈 结束引号前没有换行
+            RS_PUB_KEY: "\${{ secrets.RS_PUB_KEY }}"
+            RENDEZVOUS_SERVER: "\${{ secrets.RENDEZVOUS_SERVER }}"
+            API_SERVER: "\${{ secrets.API_SERVER }}"
+            DEFAULT_PASSWORD: "\${{ secrets.DEFAULT_PASSWORD }}"
+            CUSTOM_SUFFIX: "\${{ secrets.CUSTOM_SUFFIX }}"''')  # 👈 结束引号前没有换行
 
           if re.search(r'^env:', content, flags=re.MULTILINE):
               content = re.sub(

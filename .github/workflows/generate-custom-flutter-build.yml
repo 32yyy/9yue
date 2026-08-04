@@ -12,105 +12,66 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate flutter-build-custom.yml - Part 1 (Secrets)
+      - name: Generate flutter-build-custom.yml
         run: |
-          python3 - << 'EOF'
+          python3 -c "
           import re
-          import textwrap
           from pathlib import Path
 
-          file_path = Path('.github/workflows/flutter-build-custom.yml')
           original = Path('.github/workflows/flutter-build.yml')
+          custom = Path('.github/workflows/flutter-build-custom.yml')
 
           if not original.exists():
-              print("❌ 找不到原始文件")
+              print('❌ 找不到原始文件')
               exit(1)
 
           with open(original, 'r', encoding='utf-8') as f:
               content = f.read()
 
+          # 修改1: 添加 secrets
           if 'secrets:' not in content:
-              secrets_block = textwrap.dedent('''
-              secrets:
-                # ===== 自定义 secrets =====
-                RENDEZVOUS_SERVER:
-                  required: false
-                RS_PUB_KEY:
-                  required: false
-                API_SERVER:
-                  required: false
-                DEFAULT_PASSWORD:
-                  required: false
-                RELAY_SERVER:
-                  required: false
-                CUSTOM_SUFFIX:
-                  required: false''')
+              secrets_block = '''    secrets:
+          # ===== 自定义 secrets =====
+          RENDEZVOUS_SERVER:
+            required: false
+          RS_PUB_KEY:
+            required: false
+          API_SERVER:
+            required: false
+          DEFAULT_PASSWORD:
+            required: false
+          RELAY_SERVER:
+            required: false
+          CUSTOM_SUFFIX:
+            required: false'''
               content = re.sub(
                   r'(inputs:.*?)(?=\n\s*#|$)',
                   r'\1' + '\n' + secrets_block,
                   content,
                   flags=re.DOTALL
               )
-              print("✅ 已添加 secrets 定义")
-          else:
-              print("ℹ️ secrets 已存在，跳过")
 
-          with open(file_path, 'w', encoding='utf-8') as f:
-              f.write(content)
-
-          print("✅ Part 1 完成")
-          EOF
-
-      - name: Generate flutter-build-custom.yml - Part 2 (Env Vars)
-        run: |
-          python3 - << 'EOF'
-          import re
-          import textwrap
-          from pathlib import Path
-
-          file_path = Path('.github/workflows/flutter-build-custom.yml')
-
-          with open(file_path, 'r', encoding='utf-8') as f:
-              content = f.read()
-
-          # 使用占位符，避免 Heredoc 中的 $ 被 YAML 解析器干扰
-          env_vars = textwrap.dedent('''
-              # ===== 自定义环境变量 =====
-              RS_PUB_KEY: "SECRETS_RS_PUB_KEY"
-              RENDEZVOUS_SERVER: "SECRETS_RENDEZVOUS_SERVER"
-              API_SERVER: "SECRETS_API_SERVER"
-              DEFAULT_PASSWORD: "SECRETS_DEFAULT_PASSWORD"
-              CUSTOM_SUFFIX: "SECRETS_CUSTOM_SUFFIX"''')
-
-          # 替换占位符为正确的 GitHub Secrets 语法
-          env_vars = env_vars.replace('SECRETS_RS_PUB_KEY', '${{ secrets.RS_PUB_KEY }}')
-          env_vars = env_vars.replace('SECRETS_RENDEZVOUS_SERVER', '${{ secrets.RENDEZVOUS_SERVER }}')
-          env_vars = env_vars.replace('SECRETS_API_SERVER', '${{ secrets.API_SERVER }}')
-          env_vars = env_vars.replace('SECRETS_DEFAULT_PASSWORD', '${{ secrets.DEFAULT_PASSWORD }}')
-          env_vars = env_vars.replace('SECRETS_CUSTOM_SUFFIX', '${{ secrets.CUSTOM_SUFFIX }}')
+          # 修改2: 添加环境变量
+          env_block = '''  # ===== 自定义环境变量 =====
+          RS_PUB_KEY: \"\${{ secrets.RS_PUB_KEY }}\"
+          RENDEZVOUS_SERVER: \"\${{ secrets.RENDEZVOUS_SERVER }}\"
+          API_SERVER: \"\${{ secrets.API_SERVER }}\"
+          DEFAULT_PASSWORD: \"\${{ secrets.DEFAULT_PASSWORD }}\"
+          CUSTOM_SUFFIX: \"\${{ secrets.CUSTOM_SUFFIX }}\"'''
 
           if re.search(r'^env:', content, flags=re.MULTILINE):
               content = re.sub(
                   r'^env:',
-                  f'env:\n{env_vars}',
+                  f'env:\n{env_block}',
                   content,
                   flags=re.MULTILINE
               )
-              print("✅ 已添加环境变量")
-          else:
-              print("⚠️ 未找到 env:")
-              content = re.sub(
-                  r'(# NOTE:.*?)(?=jobs:)',
-                  r'\1env:\n' + env_vars + '\n\n',
-                  content,
-                  flags=re.DOTALL
-              )
 
-          with open(file_path, 'w', encoding='utf-8') as f:
+          with open(custom, 'w', encoding='utf-8') as f:
               f.write(content)
 
-          print("✅ Part 2 完成")
-          EOF
+          print('✅ flutter-build-custom.yml 已生成')
+          "
 
       - name: Upload custom flutter-build file
         uses: actions/upload-artifact@v4

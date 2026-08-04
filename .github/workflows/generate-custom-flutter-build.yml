@@ -1,0 +1,39 @@
+name: S00-Generate Custom flutter-build.yml
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-custom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate flutter-build-custom.yml
+        run: |
+          # 读取原始的 flutter-build.yml
+          if [ -f ".github/workflows/flutter-build.yml" ]; then
+            cp .github/workflows/flutter-build.yml .github/workflows/flutter-build-custom.yml
+          else
+            echo "❌ flutter-build.yml not found!"
+            exit 1
+          fi
+
+          # ========== 第一处修改：在 secrets: 下插入自定义 Secrets ==========
+          # 查找 on.workflow_call.secrets: 的位置，在其下插入自定义 Secrets
+          sed -i '/^    secrets:/a\      # ===== 新增的自定义 secrets =====\n      RENDEZVOUS_SERVER:\n        required: false\n      RS_PUB_KEY:\n        required: false\n      API_SERVER:\n        required: false\n      DEFAULT_PASSWORD:\n        required: false\n      RELAY_SERVER:\n        required: false\n      CUSTOM_SUFFIX:\n        required: false' .github/workflows/flutter-build-custom.yml
+
+          # ========== 第二处修改：在 env: 下插入自定义变量 ==========
+          # 查找 env: 的位置，在其下插入自定义变量
+          sed -i '/^env:/a\  RS_PUB_KEY: "${{secrets.RS_PUB_KEY}}"\n  RENDEZVOUS_SERVER: "${{secrets.RENDEZVOUS_SERVER}}"\n  API_SERVER: "${{secrets.API_SERVER}}"\n  DEFAULT_PASSWORD: "${{secrets.DEFAULT_PASSWORD}}"\n  CUSTOM_SUFFIX: "${{secrets.CUSTOM_SUFFIX}}"' .github/workflows/flutter-build-custom.yml
+
+          echo "✅ flutter-build-custom.yml 已生成"
+
+      - name: Upload custom flutter-build file
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-build-custom
+          path: .github/workflows/flutter-build-custom.yml

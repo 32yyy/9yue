@@ -1,4 +1,4 @@
-name: Generate Custom flutter-build.yml
+name: S00-Generate Custom flutter-build.yml
 
 on:
   workflow_dispatch:
@@ -16,6 +16,7 @@ jobs:
         run: |
           python3 - << 'EOF'
           import re
+          import textwrap
           from pathlib import Path
 
           file_path = Path('.github/workflows/flutter-build-custom.yml')
@@ -29,24 +30,24 @@ jobs:
               content = f.read()
 
           if 'secrets:' not in content:
-              secrets_block = '''
-          secrets:
-          # ===== 自定义 secrets =====
-          RENDEZVOUS_SERVER:
-            required: false
-          RS_PUB_KEY:
-            required: false
-          API_SERVER:
-            required: false
-          DEFAULT_PASSWORD:
-            required: false
-          RELAY_SERVER:
-            required: false
-          CUSTOM_SUFFIX:
-            required: false'''
+              secrets_block = textwrap.dedent('''
+              secrets:
+                # ===== 自定义 secrets =====
+                RENDEZVOUS_SERVER:
+                  required: false
+                RS_PUB_KEY:
+                  required: false
+                API_SERVER:
+                  required: false
+                DEFAULT_PASSWORD:
+                  required: false
+                RELAY_SERVER:
+                  required: false
+                CUSTOM_SUFFIX:
+                  required: false''')
               content = re.sub(
                   r'(inputs:.*?)(?=\n\s*#|$)',
-                  r'\1' + secrets_block,
+                  r'\1' + '\n' + secrets_block,
                   content,
                   flags=re.DOTALL
               )
@@ -64,6 +65,7 @@ jobs:
         run: |
           python3 - << 'EOF'
           import re
+          import textwrap
           from pathlib import Path
 
           file_path = Path('.github/workflows/flutter-build-custom.yml')
@@ -71,19 +73,18 @@ jobs:
           with open(file_path, 'r', encoding='utf-8') as f:
               content = f.read()
 
-          # 注意：每行前面都有两个空格，与原有的 env 子项对齐
-          env_vars = '''
-          # ===== 自定义环境变量 =====
-          RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
-          RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
-          API_SERVER: "${{ secrets.API_SERVER }}"
-          DEFAULT_PASSWORD: "${{ secrets.DEFAULT_PASSWORD }}"
-          CUSTOM_SUFFIX: "${{ secrets.CUSTOM_SUFFIX }}"'''
+          env_vars = textwrap.dedent('''
+            # ===== 自定义环境变量 =====
+            RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
+            RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
+            API_SERVER: "${{ secrets.API_SERVER }}"
+            DEFAULT_PASSWORD: "${{ secrets.DEFAULT_PASSWORD }}"
+            CUSTOM_SUFFIX: "${{ secrets.CUSTOM_SUFFIX }}"''')
 
           if re.search(r'^env:', content, flags=re.MULTILINE):
               content = re.sub(
                   r'^env:',
-                  f'env:{env_vars}',
+                  f'env:' + '\n' + env_vars,
                   content,
                   flags=re.MULTILINE
               )
@@ -92,7 +93,7 @@ jobs:
               print("⚠️ 未找到 env:")
               content = re.sub(
                   r'(# NOTE:.*?)(?=jobs:)',
-                  r'\1env:' + env_vars + '\n\n',
+                  r'\1env:' + '\n' + env_vars + '\n\n',
                   content,
                   flags=re.DOTALL
               )

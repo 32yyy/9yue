@@ -17,11 +17,22 @@ jobs:
           # 复制原始文件
           cp .github/workflows/flutter-build.yml .github/workflows/flutter-build-custom.yml
 
-          # ===== 修改1: 在 inputs 后插入 secrets =====
-          sed -i '/upload-tag:/a\    secrets:\n      # ===== 自定义 secrets =====\n      RENDEZVOUS_SERVER:\n        required: false\n      RS_PUB_KEY:\n        required: false\n      API_SERVER:\n        required: false\n      DEFAULT_PASSWORD:\n        required: false\n      RELAY_SERVER:\n        required: false\n      CUSTOM_SUFFIX:\n        required: false' .github/workflows/flutter-build-custom.yml
+          # 读取原始文件内容
+          original_content=$(cat .github/workflows/flutter-build-custom.yml)
 
-          # ===== 修改2: 在 env: 后插入自定义变量（使用 \$ 转义） =====
-          sed -i '/^env:/a\  # ===== 自定义环境变量 =====\n  RS_PUB_KEY: "\${{ secrets.RS_PUB_KEY }}"\n  RENDEZVOUS_SERVER: "\${{ secrets.RENDEZVOUS_SERVER }}"\n  API_SERVER: "\${{ secrets.API_SERVER }}"\n  DEFAULT_PASSWORD: "\${{ secrets.DEFAULT_PASSWORD }}"\n  CUSTOM_SUFFIX: "\${{ secrets.CUSTOM_SUFFIX }}"' .github/workflows/flutter-build-custom.yml
+          # 检查是否已经添加了 secrets
+          if ! grep -q "secrets:" .github/workflows/flutter-build-custom.yml; then
+            # 在 "upload-tag:" 行后插入 secrets 块
+            sed -i '/upload-tag:/a\    secrets:\n      # ===== 自定义 secrets =====\n      RENDEZVOUS_SERVER:\n        required: false\n      RS_PUB_KEY:\n        required: false\n      API_SERVER:\n        required: false\n      DEFAULT_PASSWORD:\n        required: false\n      RELAY_SERVER:\n        required: false\n      CUSTOM_SUFFIX:\n        required: false' .github/workflows/flutter-build-custom.yml
+          fi
+
+          # 检查是否已经添加了自定义环境变量
+          if ! grep -q "# ===== 自定义环境变量 =====" .github/workflows/flutter-build-custom.yml; then
+            # 创建一个临时文件，在 env: 后插入自定义变量
+            # 使用 awk 在 env: 行后插入内容，避免 sed 的转义问题
+            awk '/^env:/{print; print "  # ===== 自定义环境变量 ====="; print "  RS_PUB_KEY: \"${{ secrets.RS_PUB_KEY }}\""; print "  RENDEZVOUS_SERVER: \"${{ secrets.RENDEZVOUS_SERVER }}\""; print "  API_SERVER: \"${{ secrets.API_SERVER }}\""; print "  DEFAULT_PASSWORD: \"${{ secrets.DEFAULT_PASSWORD }}\""; print "  CUSTOM_SUFFIX: \"${{ secrets.CUSTOM_SUFFIX }}\""; next}1' .github/workflows/flutter-build-custom.yml > .github/workflows/flutter-build-custom-temp.yml
+            mv .github/workflows/flutter-build-custom-temp.yml .github/workflows/flutter-build-custom.yml
+          fi
 
           echo "✅ flutter-build-custom.yml 已生成"
 

@@ -13,19 +13,9 @@ jobs:
           fetch-depth: 0
 
       - name: Generate flutter-build-custom.yml
-        env:
-          # 将包含 ${{ ... }} 的字符串作为环境变量传递
-          ENV_VARS: |
-            # ===== 自定义环境变量 =====
-            RS_PUB_KEY: "$${{ secrets.RS_PUB_KEY }}"
-            RENDEZVOUS_SERVER: "$${{ secrets.RENDEZVOUS_SERVER }}"
-            API_SERVER: "$${{ secrets.API_SERVER }}"
-            DEFAULT_PASSWORD: "$${{ secrets.DEFAULT_PASSWORD }}"
-            CUSTOM_SUFFIX: "$${{ secrets.CUSTOM_SUFFIX }}"
         run: |
-          python3 - << 'EOF'
+          python3 << 'EOF'
           import re
-          import os
           from pathlib import Path
 
           file_path = Path('.github/workflows/flutter-build-custom.yml')
@@ -65,9 +55,16 @@ jobs:
           else:
               print('ℹ️ secrets 已存在，跳过')
 
-          # 修改2：添加环境变量（从环境变量读取）
-          env_vars = os.environ.get('ENV_VARS', '')
-          if env_vars:
+          # 修改2：直接在 Python 中定义 env_vars，不通过环境变量传递
+          env_vars = '''
+            # ===== 自定义环境变量 =====
+            RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
+            RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
+            API_SERVER: "${{ secrets.API_SERVER }}"
+            DEFAULT_PASSWORD: "${{ secrets.DEFAULT_PASSWORD }}"
+            CUSTOM_SUFFIX: "${{ secrets.CUSTOM_SUFFIX }}"'''
+
+          if re.search(r'^env:', content, flags=re.MULTILINE):
               content = re.sub(
                   r'^env:',
                   f'env:{env_vars}',
@@ -76,7 +73,7 @@ jobs:
               )
               print('✅ 已添加环境变量')
           else:
-              print('⚠️ 未找到 env 变量')
+              print('⚠️ 未找到 env:')
 
           with open(file_path, 'w', encoding='utf-8') as f:
               f.write(content)

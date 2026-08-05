@@ -58,7 +58,7 @@ jobs:
     uses: ./.github/workflows/flutter-build.yml
     with:
       upload-artifact: true
-      upload-tag: ${{ github.event.inputs.version_suffix || 'custom' }}
+      upload-tag:  ${{ github.ref_name }}
     secrets:
       RENDEZVOUS_SERVER: ${{ github.event.inputs.rendezvous_server }}
       RS_PUB_KEY: ${{ github.event.inputs.rs_pub_key }}

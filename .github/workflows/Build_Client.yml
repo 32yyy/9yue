@@ -29,7 +29,7 @@ on:
       version_suffix:
         description: '文件名后缀'
         required: false
-        default: '-'
+        default: ''
         type: string
 
 jobs:

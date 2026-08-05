@@ -55,7 +55,7 @@ jobs:
 
   call-flutter-build:
     needs: build
-    uses: ./.github/workflows/flutter-build-custom.yml
+    uses: ./.github/workflows/flutter-build.yml
     with:
       upload-artifact: true
       upload-tag: ${{ github.event.inputs.version_suffix || 'custom' }}

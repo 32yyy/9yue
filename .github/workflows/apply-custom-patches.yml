@@ -1,0 +1,346 @@
+name: S1-Apply Custom Patches
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_message:
+        description: '提交信息（可选）'
+        required: false
+        default: 'chore: apply custom rustdesk client patches'
+
+jobs:
+  apply-patches:
+    name: Apply Configuration Patches
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Ensure submodule is on correct branch
+        run: |
+          echo "🔍 检查子仓库..."
+          
+          if [[ -d "libs/hbb_common/.git" ]]; then
+            cd libs/hbb_common
+            git fetch origin
+            git checkout main || git checkout master
+            git pull origin main || git pull origin master
+            cd ..
+            echo "✅ 子仓库已准备就绪"
+          else
+            echo "🔄 子仓库不存在，手动克隆..."
+            rm -rf libs/hbb_common
+            git clone https://${{ secrets.PAT_TOKEN }}@github.com/32yyy/hbb_common.git libs/hbb_common
+            cd libs/hbb_common
+            git checkout main || git checkout master
+            cd ..
+            echo "✅ 子仓库已克隆"
+          fi
+
+      - name: Apply Patches
+        run: |
+          echo "📝 开始应用补丁..."
+
+          # ==================== Patch 1: config.rs - 环境变量支持 ====================
+          echo "📝 应用 Patch 1: config.rs - 环境变量支持"
+
+          python3 << 'PYTHON_PATCH_1'
+          import re
+
+          with open("libs/hbb_common/src/config.rs", "r") as f:
+              content = f.read()
+
+          # 1.1 公钥改为环境变量读取
+          if 'match option_env!("RS_PUB_KEY")' in content:
+              print("✅ RS_PUB_KEY 已支持环境变量，跳过")
+          else:
+              content = re.sub(
+                  r'pub const PUBLIC_RS_PUB_KEY: &str = "[^"]*";\s*',
+                  '',
+                  content
+              )
+              content = re.sub(
+                  r'pub const RS_PUB_KEY: &str = match option_env!\("RS_PUB_KEY"\)[^;]*;\s*',
+                  '',
+                  content
+              )
+
+              new_rs_pub = '''pub const PUBLIC_RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
+          pub const RS_PUB_KEY: &str = match option_env!("RS_PUB_KEY") {Some(key) if !key.is_empty() => key,
+              _ => PUBLIC_RS_PUB_KEY,
+          };'''
+
+              pattern = r'pub const RS_PUB_KEY: &str = "[^"]*";'
+              content = re.sub(pattern, new_rs_pub, content)
+              print("✅ RS_PUB_KEY 已替换")
+
+          # 1.2 Rendezvous服务器改为环境变量读取
+          if 'match option_env!("RENDEZVOUS_SERVER")' in content:
+              print("✅ PROD_RENDEZVOUS_SERVER 已支持环境变量，跳过")
+          else:
+              pattern = r'pub static ref PROD_RENDEZVOUS_SERVER: RwLock(?:<String>)? = RwLock::new\("[^"]*"\.to_owned\(\)\);'
+              replacement = 'pub static ref PROD_RENDEZVOUS_SERVER: RwLock<String> = RwLock::new(match option_env!("RENDEZVOUS_SERVER") {Some(key) if !key.is_empty() => key,\n    _ => "",\n}.to_owned());'
+              content = re.sub(pattern, replacement, content)
+              print("✅ PROD_RENDEZVOUS_SERVER 已替换")
+
+          # 1.3 添加 SOS_MODE 支持到 HARD_SETTINGS
+          if 'option_env!("SOS_MODE")' in content:
+              print("✅ HARD_SETTINGS 已包含 SOS 支持，跳过")
+          else:
+              pattern_default = r'(pub static ref HARD_SETTINGS: RwLock<HashMap<String, String>> = )Default::default\(\)\s*;'
+              replacement_default = r'''\1{
+                  let mut map = HashMap::new();
+                  // 从环境变量读取 SOS_MODE
+                  let sos_mode = option_env!("SOS_MODE").unwrap_or("N");
+                  if sos_mode == "Y" {
+                      map.insert("conn-type".to_string(), "incoming".to_string());
+                      map.insert("disable-settings".to_string(), "Y".to_string());
+                      map.insert("disable-ab".to_string(), "Y".to_string());
+                      map.insert("disable-account".to_string(), "Y".to_string());
+                      map.insert(keys::OPTION_DISABLE_CHANGE_ID.to_string(), "Y".to_string());
+                  }
+                  RwLock::new(map)
+              };'''
+
+              content_new = re.sub(pattern_default, replacement_default, content, flags=re.DOTALL)
+
+              if content_new != content:
+                  content = content_new
+                  print("✅ HARD_SETTINGS 已从 Default::default() 替换")
+              else:
+                  pattern_block = r'(pub static ref HARD_SETTINGS: RwLock<HashMap<String, String>> = \{)\s*(let mut map = HashMap::new\(\);\s*)(.*?)(RwLock::new\(map\))'
+                  replacement_block = r'''\1
+                  let mut map = HashMap::new();
+                  // 从环境变量读取 SOS_MODE
+                  let sos_mode = option_env!("SOS_MODE").unwrap_or("N");
+                  if sos_mode == "Y" {
+                      map.insert("conn-type".to_string(), "incoming".to_string());
+                      map.insert("disable-settings".to_string(), "Y".to_string());
+                      map.insert("disable-ab".to_string(), "Y".to_string());
+                      map.insert("disable-account".to_string(), "Y".to_string());
+                      map.insert(keys::OPTION_DISABLE_CHANGE_ID.to_string(), "Y".to_string());
+                  }
+                  \4'''
+
+                  content = re.sub(pattern_block, replacement_block, content, flags=re.DOTALL)
+                  print("✅ HARD_SETTINGS 已从块格式替换")
+
+          with open("libs/hbb_common/src/config.rs", "w") as f:
+              f.write(content)
+
+          print("✅ Patch 1 完成")
+          PYTHON_PATCH_1
+
+          # ==================== Patch 2: config.rs - 默认设置优化 ====================
+          echo "📝 应用 Patch 2: config.rs - 默认设置优化"
+
+          python3 << 'PYTHON_PATCH_2'
+          import re
+
+          with open("libs/hbb_common/src/config.rs", "r") as f:
+              content = f.read()
+
+          # 检查 DEFAULT_LOCAL_SETTINGS 是否已经被替换为自定义版本
+          # 检查特征：是否包含 enable-check-update 的 map.insert，且不是常量定义
+          if 'map.insert("enable-check-update".to_string(), "N".to_string())' in content:
+              print("✅ DEFAULT_LOCAL_SETTINGS 已包含优化，跳过")
+          else:
+              new_block = '''pub static ref DEFAULT_LOCAL_SETTINGS: RwLock<HashMap<String, String>> = {
+                  let mut map = HashMap::new();
+                  //启动时检查软件更新
+                  map.insert("enable-check-update".to_string(), "N".to_string());
+                  //启用UDP打洞
+                  map.insert("enable-udp-punch".to_string(), "Y".to_string());
+                  //启用IPv6 P2P连接
+                  map.insert("enable-ipv6-punch".to_string(), "Y".to_string());
+                  RwLock::new(map)
+              };'''
+
+              pattern = r'pub static ref DEFAULT_LOCAL_SETTINGS: RwLock<HashMap<String,\s*String>>\s*=\s*(Default::default\s*\(\s*\)\s*;|\{[\s\S]*?\}\s*;)'
+              content = re.sub(pattern, new_block, content, flags=re.DOTALL)
+              print("✅ DEFAULT_LOCAL_SETTINGS 已优化")
+
+          with open("libs/hbb_common/src/config.rs", "w") as f:
+              f.write(content)
+
+          print("✅ Patch 2 完成")
+          PYTHON_PATCH_2
+
+          # ==================== Patch 3: common.rs - 固定密码与隐藏窗口 ====================
+          echo "📝 应用 Patch 3: common.rs - 固定密码与隐藏窗口、从环境变量读取API_SERVER"
+
+          python3 << 'PYTHON_PATCH_3'
+          import re
+
+          with open("src/common.rs", "r") as f:
+              content = f.read()
+
+          if 'if let Ok(api_server) = std::env::var("API_SERVER")' in content:
+              print("✅ common.rs 已包含 API_SERVER 支持，跳过")
+          else:
+              new_func = '''pub fn load_custom_client() {
+                  #[cfg(debug_assertions)]
+                  if let Ok(data) = std::fs::read_to_string("./custom.txt") {
+                      read_custom_client(data.trim());
+                      {
+                          let mut hard_settings = config::HARD_SETTINGS.write().unwrap();
+                          let default_password = option_env!("DEFAULT_PASSWORD").unwrap_or("");
+                          hard_settings.insert("password".to_string(), default_password.to_string());
+                          hard_settings.insert("verification-method".to_string(), "use-permanent-password".to_string());
+                          if let Ok(api_server) = std::env::var("API_SERVER") {
+                              if !api_server.is_empty() {
+                                  hard_settings.insert("api-server".to_string(), api_server);
+                              }
+                          }
+                      }
+                      {
+                          let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+                          defaults
+                              .entry(config::keys::OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION.to_string())
+                              .or_insert("Y".to_string());
+                      }
+                      {
+                          let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+                          defaults
+                              .entry("allow-hide-cm".to_string())
+                              .or_insert("Y".to_string());
+                      }
+                      return;
+                  }
+                  let Some(path) = std::env::current_exe().map_or(None, |x| x.parent().map(|x| x.to_path_buf()))
+                  else {
+                      return;
+                  };
+                  #[cfg(target_os = "macos")]
+                  let path = path.join("../Resources");
+                  let path = path.join("custom.txt");
+                  if path.is_file() {
+                      let Ok(data) = std::fs::read_to_string(&path) else {
+                          log::error!("Failed to read custom client config");
+                          return;
+                      };
+                      read_custom_client(&data.trim());
+                  }
+                  {
+                      let mut hard_settings = config::HARD_SETTINGS.write().unwrap();
+                      let default_password = option_env!("DEFAULT_PASSWORD").unwrap_or("");
+                      hard_settings.insert("password".to_string(), default_password.to_string());
+                      hard_settings.insert("verification-method".to_string(), "use-permanent-password".to_string());
+                      if let Ok(api_server) = std::env::var("API_SERVER") {
+                          if !api_server.is_empty() {
+                              hard_settings.insert("api-server".to_string(), api_server);
+                          }
+                      }
+                  }
+                  {
+                      let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+                      defaults
+                          .entry(config::keys::OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION.to_string())
+                          .or_insert("Y".to_string());
+                  }
+                  {
+                      let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+                      defaults
+                          .entry("allow-hide-cm".to_string())
+                          .or_insert("Y".to_string());
+                  }
+              }'''
+
+              pattern = r'pub fn load_custom_client\(\) \{.*?\n\}'
+              content = re.sub(pattern, new_func, content, flags=re.DOTALL)
+              print("✅ common.rs 已更新")
+
+          with open("src/common.rs", "w") as f:
+              f.write(content)
+
+          print("✅ Patch 3 完成")
+          PYTHON_PATCH_3
+
+          # ==================== Patch 4: desktop_home_page.dart - SOS 模式支持 ====================
+          echo "📝 应用 Patch 4: desktop_home_page.dart - SOS 模式支持"
+
+          python3 << 'PYTHON_PATCH_4'
+          import re
+
+          DESKTOP_HOME = "flutter/lib/desktop/pages/desktop_home_page.dart"
+
+          with open(DESKTOP_HOME, "r") as f:
+              content = f.read()
+
+          if 'bind.isIncomingOnly() ? translate("Your Desktop")' in content:
+              print("✅ desktop_home_page.dart 已包含 SOS 支持，跳过")
+          else:
+              pattern = r'translate\("Your Desktop"\)'
+              replacement = r'''bind.isIncomingOnly() ? translate("Your Desktop") + " SOS版" : translate("Your Desktop")'''
+              content = re.sub(pattern, replacement, content)
+              print("✅ desktop_home_page.dart 已添加 SOS 支持")
+
+          if 'if (bind.isIncomingOnly() || bind.isDisableSettings())' in content:
+              print("✅ buildPopupMenu 已包含隐藏逻辑，跳过")
+          else:
+              pattern = r'(Widget buildPopupMenu\(BuildContext context\)\s*\{)'
+              replacement = r'''\1
+              if (bind.isIncomingOnly() || bind.isDisableSettings()) {
+                return Container();
+              }'''
+              content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+              print("✅ buildPopupMenu 已添加隐藏逻辑")
+
+          with open(DESKTOP_HOME, "w") as f:
+              f.write(content)
+
+          print("✅ Patch 4 完成")
+          PYTHON_PATCH_4
+
+          echo "✅ 所有补丁应用完成"
+
+      - name: Commit Changes
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 主仓库使用 PAT
+          git remote set-url origin https://${PAT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+
+          # 提交子仓库修改
+          if [[ -d "libs/hbb_common/.git" ]]; then
+            cd libs/hbb_common
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git remote set-url origin https://${PAT_TOKEN}@github.com/32yyy/hbb_common.git
+
+            if [[ -n $(git status --porcelain) ]]; then
+              git add src/config.rs
+              git commit -m "${{ github.event.inputs.commit_message || 'chore: apply custom rustdesk client patches' }} (submodule)"
+              git push origin HEAD
+              echo "✅ 子仓库变更已提交"
+            else
+              echo "⚠️ 子仓库没有检测到变更"
+            fi
+            cd ../..
+          else
+            echo "⚠️ 子仓库目录不存在，跳过"
+          fi
+
+          # 提交主仓库修改（common.rs + desktop_home_page.dart）
+          git add src/common.rs flutter/lib/desktop/pages/desktop_home_page.dart libs/hbb_common
+
+          if git diff --staged --quiet; then
+            echo "⚠️ 主仓库没有检测到变更"
+            exit 0
+          fi
+
+          git commit -m "${{ github.event.inputs.commit_message || 'chore: apply custom rustdesk client patches' }}"
+          git push origin HEAD
+
+          echo "✅ 变更已提交到当前分支"

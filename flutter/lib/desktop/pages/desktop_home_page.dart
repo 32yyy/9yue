@@ -406,7 +406,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    bind.isIncomingOnly() ? translate("Your Desktop") + " SOS版" : translate("Your Desktop"),
+                    bind.isIncomingOnly() ? translate("Your Desktop") + " SOS\u7248" : translate("Your Desktop"),
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),

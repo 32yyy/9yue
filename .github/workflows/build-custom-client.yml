@@ -33,12 +33,21 @@ on:
         type: boolean
 
 jobs:
-  # ==================== Job 1: 打印配置信息 ====================
-  print-config:
+  # ==================== Job 1: 生成 tag ====================
+  prepare-tag:
     runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.set-tag.outputs.tag_name }}
     steps:
       - name: Set tag
-        run: echo "TAG_NAME=$(date +'%Y%m%d')" >> $GITHUB_ENV
+        id: set-tag
+        run: echo "tag_name=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+  # ==================== Job 2: 打印配置信息 ====================
+  print-config:
+    runs-on: ubuntu-latest
+    needs: prepare-tag
+    steps:
       - name: Print build configuration
         run: |
           echo "=========================================="
@@ -51,14 +60,16 @@ jobs:
           echo "CUSTOM_SUFFIX: ${{ github.event.inputs.version_suffix != '' && github.event.inputs.version_suffix || '(无)' }}"
           echo "SOS_MODE: ${{ github.event.inputs.build_sos_version == 'true' && 'Y' || 'N' }}"
           echo "=========================================="
+          echo "📦 Upload Tag: ${{ needs.prepare-tag.outputs.tag_name }}"
+          echo "=========================================="
 
-  # ==================== Job 2: 编译 ====================
+  # ==================== Job 3: 编译 ====================
   call-flutter-build:
-    needs: print-config
+    needs: [prepare-tag, print-config]
     uses: ./.github/workflows/flutter-build.yml
     with:
       upload-artifact: true
-      upload-tag: ${{ env.TAG_NAME }}
+      upload-tag: ${{ needs.prepare-tag.outputs.tag_name }}
     secrets:
       RENDEZVOUS_SERVER: ${{ github.event.inputs.rendezvous_server }}
       RS_PUB_KEY: ${{ github.event.inputs.rs_pub_key }}

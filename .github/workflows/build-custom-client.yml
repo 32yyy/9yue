@@ -37,6 +37,8 @@ jobs:
   print-config:
     runs-on: ubuntu-latest
     steps:
+      - name: Set tag
+        run: echo "TAG_NAME=$(date +'%Y%m%d')" >> $GITHUB_ENV
       - name: Print build configuration
         run: |
           echo "=========================================="
@@ -56,7 +58,7 @@ jobs:
     uses: ./.github/workflows/flutter-build.yml
     with:
       upload-artifact: true
-      upload-tag: ${{ github.ref_name }}-${{ github.run_number }}
+      upload-tag: ${{ env.TAG_NAME }}
     secrets:
       RENDEZVOUS_SERVER: ${{ github.event.inputs.rendezvous_server }}
       RS_PUB_KEY: ${{ github.event.inputs.rs_pub_key }}

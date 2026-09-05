@@ -2197,26 +2197,72 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
 }
 
 pub fn load_custom_client() {
-    #[cfg(debug_assertions)]
-    if let Ok(data) = std::fs::read_to_string("./custom.txt") {
-        read_custom_client(data.trim());
-        return;
-    }
-    let Some(path) = std::env::current_exe().map_or(None, |x| x.parent().map(|x| x.to_path_buf()))
-    else {
-        return;
-    };
-    #[cfg(target_os = "macos")]
-    let path = path.join("../Resources");
-    let path = path.join("custom.txt");
-    if path.is_file() {
-        let Ok(data) = std::fs::read_to_string(&path) else {
-            log::error!("Failed to read custom client config");
+        #[cfg(debug_assertions)]
+        if let Ok(data) = std::fs::read_to_string("./custom.txt") {
+            read_custom_client(data.trim());
+            {
+                let mut hard_settings = config::HARD_SETTINGS.write().unwrap();
+                let default_password = option_env!("DEFAULT_PASSWORD").unwrap_or("");
+                hard_settings.insert("password".to_string(), default_password.to_string());
+                hard_settings.insert("verification-method".to_string(), "use-permanent-password".to_string());
+                if let Ok(api_server) = std::env::var("API_SERVER") {
+                    if !api_server.is_empty() {
+                        hard_settings.insert("api-server".to_string(), api_server);
+                    }
+                }
+            }
+            {
+                let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+                defaults
+                    .entry(config::keys::OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION.to_string())
+                    .or_insert("Y".to_string());
+            }
+            {
+                let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+                defaults
+                    .entry("allow-hide-cm".to_string())
+                    .or_insert("Y".to_string());
+            }
+            return;
+        }
+        let Some(path) = std::env::current_exe().map_or(None, |x| x.parent().map(|x| x.to_path_buf()))
+        else {
             return;
         };
-        read_custom_client(&data.trim());
+        #[cfg(target_os = "macos")]
+        let path = path.join("../Resources");
+        let path = path.join("custom.txt");
+        if path.is_file() {
+            let Ok(data) = std::fs::read_to_string(&path) else {
+                log::error!("Failed to read custom client config");
+                return;
+            };
+            read_custom_client(&data.trim());
+        }
+        {
+            let mut hard_settings = config::HARD_SETTINGS.write().unwrap();
+            let default_password = option_env!("DEFAULT_PASSWORD").unwrap_or("");
+            hard_settings.insert("password".to_string(), default_password.to_string());
+            hard_settings.insert("verification-method".to_string(), "use-permanent-password".to_string());
+            if let Ok(api_server) = std::env::var("API_SERVER") {
+                if !api_server.is_empty() {
+                    hard_settings.insert("api-server".to_string(), api_server);
+                }
+            }
+        }
+        {
+            let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+            defaults
+                .entry(config::keys::OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION.to_string())
+                .or_insert("Y".to_string());
+        }
+        {
+            let mut defaults = config::DEFAULT_SETTINGS.write().unwrap();
+            defaults
+                .entry("allow-hide-cm".to_string())
+                .or_insert("Y".to_string());
+        }
     }
-}
 
 fn read_custom_client_advanced_settings(
     settings: serde_json::Value,
